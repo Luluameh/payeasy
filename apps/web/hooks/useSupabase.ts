@@ -27,7 +27,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { getClient } from '@/lib/supabase/client'
+import { getSupabaseClient } from '@/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 
@@ -38,6 +38,6 @@ import type { Database } from '@/lib/types/database'
  * @returns Typed Supabase client instance
  */
 export function useSupabase(): SupabaseClient<Database> {
-  const supabase = useMemo(() => getClient(), [])
+  const supabase = useMemo(() => getSupabaseClient(), [])
   return supabase
 }
