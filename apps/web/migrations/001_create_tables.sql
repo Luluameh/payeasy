@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis"; -- For location features
 
 -- USERS TABLE (Public Profile)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE,
   email TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE users (
 );
 
 -- LISTINGS TABLE
-CREATE TABLE listings (
+CREATE TABLE IF NOT EXISTS listings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   landlord_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE listings (
 );
 
 -- LISTING IMAGES
-CREATE TABLE listing_images (
+CREATE TABLE IF NOT EXISTS listing_images (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   listing_id UUID REFERENCES listings(id) ON DELETE CASCADE NOT NULL,
   url TEXT NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE listing_images (
 );
 
 -- AMENITIES (Master List)
-CREATE TABLE amenities (
+CREATE TABLE IF NOT EXISTS amenities (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT UNIQUE NOT NULL,
   icon TEXT,
@@ -53,14 +53,14 @@ CREATE TABLE amenities (
 );
 
 -- LISTING AMENITIES (Join Table)
-CREATE TABLE listing_amenities (
+CREATE TABLE IF NOT EXISTS listing_amenities (
   listing_id UUID REFERENCES listings(id) ON DELETE CASCADE,
   amenity TEXT NOT NULL, -- Storing name directly for simplicity or UUID if referencing amenities table
   PRIMARY KEY (listing_id, amenity)
 );
 
 -- MESSAGES
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
   receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -71,7 +71,7 @@ CREATE TABLE messages (
 );
 
 -- PAYMENT RECORDS
-CREATE TABLE payment_records (
+CREATE TABLE IF NOT EXISTS payment_records (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
@@ -83,7 +83,7 @@ CREATE TABLE payment_records (
 );
 
 -- RENT AGREEMENTS
-CREATE TABLE rent_agreements (
+CREATE TABLE IF NOT EXISTS rent_agreements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   listing_id UUID REFERENCES listings(id) ON DELETE CASCADE,
   tenant_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -107,6 +107,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE TRIGGER on_auth_user_created
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

@@ -4,7 +4,7 @@ import type {
   MessageWithSender,
   PaymentRecord,
   RentAgreement,
-} from "@/lib/types/supabase";
+} from "@/lib/types/database";
 
 // ── Listings ─────────────────────────────────────────────
 
