@@ -6,194 +6,159 @@ import type { Listing } from '@/lib/types/database'
 const STORAGE_KEY = 'payeasy_comparison_ids'
 const MAX_COMPARISON_ITEMS = 4
 
-export interface ComparisonState {
-  /** IDs of listings currently in comparison */
+export interface ComparisonListing extends Listing {
+  images?: string[]
+  landlord?: {
+    username?: string | null
+    avatar_url?: string | null
+  }
+}
+
+export interface UseComparisonReturn {
   comparisonIds: string[]
-  /** Full listing objects (populated when page loads) */
-  listings: Listing[]
-  /** Whether the comparison data is loading */
-  isLoading: boolean
-  /** Maximum number of items allowed */
-  maxItems: number
-}
-
-export interface ComparisonActions {
-  /** Add a listing to comparison */
-  addToComparison: (listing: Listing) => void
-  /** Remove a listing from comparison by ID */
-  removeFromComparison: (listingId: string) => void
-  /** Check if a listing is in comparison */
-  isInComparison: (listingId: string) => boolean
-  /** Toggle a listing in comparison */
-  toggleComparison: (listing: Listing) => void
-  /** Clear all listings from comparison */
+  listings: ComparisonListing[]
+  isInComparison: (id: string) => boolean
+  addToComparison: (listing: ComparisonListing) => boolean
+  removeFromComparison: (id: string) => void
   clearComparison: () => void
-  /** Check if comparison is full */
-  isComparisonFull: () => boolean
-  /** Get comparison count */
-  getComparisonCount: () => number
-  /** Generate shareable URL */
+  toggleComparison: (listing: ComparisonListing) => boolean
   getShareUrl: () => string
+  isLoading: boolean
+  isFull: boolean
 }
-
-export type UseComparisonReturn = ComparisonState & ComparisonActions
 
 /**
- * Load comparison IDs from localStorage
+ * Fetch listings by IDs from the compare API endpoint
  */
-function loadFromStorage(): string[] {
-  if (typeof window === 'undefined') return []
+export async function fetchListingsByIds(ids: string[]): Promise<ComparisonListing[]> {
+  if (ids.length === 0) return []
   
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (!stored) return []
+    const params = new URLSearchParams()
+    ids.forEach(id => params.append('ids', id))
     
-    const parsed = JSON.parse(stored)
-    if (!Array.isArray(parsed)) return []
+    const res = await fetch(`/api/listings/compare?${params.toString()}`)
+    if (!res.ok) {
+      console.error('Failed to fetch listings for comparison')
+      return []
+    }
     
-    return parsed.filter((id): id is string => typeof id === 'string')
-  } catch {
+    const data = await res.json()
+    return data.listings ?? []
+  } catch (error) {
+    console.error('Error fetching comparison listings:', error)
     return []
   }
 }
 
 /**
- * Save comparison IDs to localStorage
- */
-function saveToStorage(ids: string[]): void {
-  if (typeof window === 'undefined') return
-  
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
-  } catch {
-    // Storage might be full or disabled
-  }
-}
-
-/**
- * Hook for managing listing comparison state with localStorage persistence.
- * Use within ComparisonProvider for global state management.
+ * Hook for managing listing comparison state with localStorage persistence
  */
 export function useComparison(): UseComparisonReturn {
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
-  const [listings, setListings] = useState<Listing[]>([])
+  const [listings, setListings] = useState<ComparisonListing[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // Load from localStorage on mount
   useEffect(() => {
-    const stored = loadFromStorage()
-    setComparisonIds(stored)
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const ids = JSON.parse(stored) as string[]
+        setComparisonIds(ids.slice(0, MAX_COMPARISON_ITEMS))
+      }
+    } catch {
+      // Invalid data, reset
+      localStorage.removeItem(STORAGE_KEY)
+    }
     setIsLoading(false)
   }, [])
 
-  // Sync to localStorage when IDs change
+  // Persist to localStorage when IDs change
   useEffect(() => {
     if (!isLoading) {
-      saveToStorage(comparisonIds)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(comparisonIds))
     }
   }, [comparisonIds, isLoading])
 
-  // Keep listings in sync with IDs
+  // Fetch full listing data when IDs change
   useEffect(() => {
-    setListings((prev) => prev.filter((l) => comparisonIds.includes(l.id)))
-  }, [comparisonIds])
+    if (isLoading) return
+    
+    async function loadListings() {
+      if (comparisonIds.length === 0) {
+        setListings([])
+        return
+      }
+      
+      const fetched = await fetchListingsByIds(comparisonIds)
+      setListings(fetched)
+    }
+    
+    loadListings()
+  }, [comparisonIds, isLoading])
 
   const isInComparison = useCallback(
-    (listingId: string): boolean => comparisonIds.includes(listingId),
-    [comparisonIds]
-  )
-
-  const isComparisonFull = useCallback(
-    (): boolean => comparisonIds.length >= MAX_COMPARISON_ITEMS,
-    [comparisonIds]
-  )
-
-  const getComparisonCount = useCallback(
-    (): number => comparisonIds.length,
+    (id: string) => comparisonIds.includes(id),
     [comparisonIds]
   )
 
   const addToComparison = useCallback(
-    (listing: Listing): void => {
-      if (comparisonIds.length >= MAX_COMPARISON_ITEMS) return
-      if (comparisonIds.includes(listing.id)) return
-
-      setComparisonIds((prev) => [...prev, listing.id])
-      setListings((prev) => [...prev, listing])
+    (listing: ComparisonListing): boolean => {
+      if (comparisonIds.length >= MAX_COMPARISON_ITEMS) {
+        return false
+      }
+      if (comparisonIds.includes(listing.id)) {
+        return false
+      }
+      
+      setComparisonIds(prev => [...prev, listing.id])
+      setListings(prev => [...prev, listing])
+      return true
     },
     [comparisonIds]
   )
 
-  const removeFromComparison = useCallback((listingId: string): void => {
-    setComparisonIds((prev) => prev.filter((id) => id !== listingId))
-    setListings((prev) => prev.filter((l) => l.id !== listingId))
+  const removeFromComparison = useCallback((id: string) => {
+    setComparisonIds(prev => prev.filter(i => i !== id))
+    setListings(prev => prev.filter(l => l.id !== id))
   }, [])
 
-  const toggleComparison = useCallback(
-    (listing: Listing): void => {
-      if (comparisonIds.includes(listing.id)) {
-        removeFromComparison(listing.id)
-      } else {
-        addToComparison(listing)
-      }
-    },
-    [comparisonIds, addToComparison, removeFromComparison]
-  )
-
-  const clearComparison = useCallback((): void => {
+  const clearComparison = useCallback(() => {
     setComparisonIds([])
     setListings([])
   }, [])
 
-  const getShareUrl = useCallback((): string => {
+  const toggleComparison = useCallback(
+    (listing: ComparisonListing): boolean => {
+      if (isInComparison(listing.id)) {
+        removeFromComparison(listing.id)
+        return false
+      } else {
+        return addToComparison(listing)
+      }
+    },
+    [isInComparison, addToComparison, removeFromComparison]
+  )
+
+  const getShareUrl = useCallback(() => {
     if (typeof window === 'undefined') return ''
     
-    const baseUrl = window.location.origin
     const params = new URLSearchParams()
-    comparisonIds.forEach((id) => params.append('ids', id))
-    
-    return `${baseUrl}/compare?${params.toString()}`
+    comparisonIds.forEach(id => params.append('ids', id))
+    return `${window.location.origin}/listings/comparison?${params.toString()}`
   }, [comparisonIds])
 
   return {
-    // State
     comparisonIds,
     listings,
-    isLoading,
-    maxItems: MAX_COMPARISON_ITEMS,
-    // Actions
+    isInComparison,
     addToComparison,
     removeFromComparison,
-    isInComparison,
-    toggleComparison,
     clearComparison,
-    isComparisonFull,
-    getComparisonCount,
+    toggleComparison,
     getShareUrl,
-  }
-}
-
-/**
- * Load listings by IDs from the API (for comparison page)
- */
-export async function fetchListingsByIds(ids: string[]): Promise<Listing[]> {
-  if (ids.length === 0) return []
-
-  try {
-    const params = new URLSearchParams()
-    ids.forEach((id) => params.append('ids', id))
-    
-    const response = await fetch(`/api/listings/compare?${params.toString()}`)
-    
-    if (!response.ok) {
-      console.error('Failed to fetch comparison listings')
-      return []
-    }
-
-    const json = await response.json()
-    return json.data ?? json.listings ?? []
-  } catch (error) {
-    console.error('Error fetching comparison listings:', error)
-    return []
+    isLoading,
+    isFull: comparisonIds.length >= MAX_COMPARISON_ITEMS,
   }
 }

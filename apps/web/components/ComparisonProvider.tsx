@@ -1,17 +1,12 @@
 'use client'
 
-import React, { createContext, useContext, useMemo } from 'react'
-import { useComparison, type UseComparisonReturn } from '@/lib/hooks/useComparison'
-import type { Listing } from '@/lib/types/database'
+import React, { createContext, useContext, ReactNode } from 'react'
+import { useComparison, type UseComparisonReturn, type ComparisonListing } from '@/lib/hooks/useComparison'
 
 type ComparisonContextValue = UseComparisonReturn
 
 const ComparisonContext = createContext<ComparisonContextValue | null>(null)
 
-/**
- * Hook to access the comparison context.
- * Must be used within a ComparisonProvider.
- */
 export function useComparisonContext(): ComparisonContextValue {
   const ctx = useContext(ComparisonContext)
   if (!ctx) {
@@ -21,28 +16,18 @@ export function useComparisonContext(): ComparisonContextValue {
 }
 
 interface ComparisonProviderProps {
-  children: React.ReactNode
-  /** Optional initial listings to populate (e.g., from URL params) */
-  initialListings?: Listing[]
+  children: ReactNode
 }
 
-/**
- * Provider component for managing listing comparison state globally.
- * Wrap this around your app or page layout to enable comparison features.
- */
-export default function ComparisonProvider({
-  children,
-}: ComparisonProviderProps) {
+export default function ComparisonProvider({ children }: ComparisonProviderProps) {
   const comparison = useComparison()
 
-  const value = useMemo(
-    () => comparison,
-    [comparison]
-  )
-
   return (
-    <ComparisonContext.Provider value={value}>
+    <ComparisonContext.Provider value={comparison}>
       {children}
     </ComparisonContext.Provider>
   )
 }
+
+// Re-export types for convenience
+export type { ComparisonListing }

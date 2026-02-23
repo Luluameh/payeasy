@@ -7,62 +7,53 @@ import { X, GitCompareArrows, Trash2 } from 'lucide-react'
 import { useComparisonContext } from './ComparisonProvider'
 
 /**
- * Floating comparison bar that appears at the bottom of the screen
- * when listings are added to comparison.
+ * Floating comparison bar that shows selected listings
+ * Displays at the bottom of the screen when items are in comparison
  */
 export default function ComparisonBar() {
-  const {
-    listings,
-    comparisonIds,
-    removeFromComparison,
-    clearComparison,
-    getComparisonCount,
-    maxItems,
-    isLoading,
-  } = useComparisonContext()
+  const { listings, comparisonIds, removeFromComparison, clearComparison, isLoading } =
+    useComparisonContext()
 
-  const count = getComparisonCount()
-
-  // Don't render if no items or still loading
-  if (isLoading || count === 0) {
+  // Don't show if empty or still loading
+  if (isLoading || comparisonIds.length === 0) {
     return null
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
-      <div className="max-w-4xl mx-auto px-4 pb-4">
-        <div className="bg-white rounded-xl shadow-2xl border border-gray-200 pointer-events-auto transform animate-slide-up">
-          <div className="flex items-center justify-between p-4">
-            {/* Left: Comparison items preview */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-violet-600">
-                <GitCompareArrows size={24} />
-                <span className="font-semibold">
-                  {count} of {maxItems}
+    <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up">
+      <div className="bg-white border-t border-gray-200 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Thumbnails */}
+            <div className="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto">
+              <div className="flex items-center gap-1 text-sm font-medium text-gray-700 flex-shrink-0">
+                <GitCompareArrows size={18} className="text-violet-600" />
+                <span className="hidden sm:inline">Compare</span>
+                <span className="bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full text-xs font-bold">
+                  {comparisonIds.length}
                 </span>
               </div>
 
-              {/* Listing thumbnails */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-2">
                 {listings.map((listing) => (
                   <div
                     key={listing.id}
-                    className="relative group"
+                    className="relative group flex-shrink-0"
                   >
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 border-2 border-white shadow-sm">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-200 group-hover:border-violet-400 transition-colors">
                       <Image
-                        src={(listing as typeof listing & { images?: string[] }).images?.[0] ?? '/images/airbnb1.jpg'}
+                        src={listing.images?.[0] ?? '/images/airbnb1.jpg'}
                         alt={listing.title}
-                        fill
-                        className="object-cover"
-                        sizes="48px"
+                        width={48}
+                        height={48}
+                        className="object-cover w-full h-full"
                       />
                     </div>
-                    {/* Remove button on hover */}
                     <button
                       onClick={() => removeFromComparison(listing.id)}
-                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full
-                                 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full
+                                 flex items-center justify-center opacity-0 group-hover:opacity-100
+                                 transition-opacity hover:bg-red-600"
                       aria-label={`Remove ${listing.title} from comparison`}
                     >
                       <X size={12} />
@@ -71,54 +62,48 @@ export default function ComparisonBar() {
                 ))}
 
                 {/* Empty slots */}
-                {Array.from({ length: maxItems - count }).map((_, i) => (
+                {Array.from({ length: 4 - comparisonIds.length }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50
-                               flex items-center justify-center text-gray-400"
-                  >
-                    <span className="text-xs">+</span>
-                  </div>
+                    className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-200 flex-shrink-0"
+                  />
                 ))}
               </div>
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-3">
-              {/* Clear all button */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={clearComparison}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500
-                           hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                aria-label="Clear comparison"
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Clear all"
               >
-                <Trash2 size={16} />
-                <span className="hidden sm:inline">Clear</span>
+                <Trash2 size={18} />
               </button>
 
-              {/* Compare button */}
               <Link
-                href="/compare"
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors
-                  ${count >= 2
-                    ? 'bg-violet-600 text-white hover:bg-violet-700'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
-                  }`}
-                aria-disabled={count < 2}
+                href="/listings/comparison"
+                className={`
+                  px-4 py-2 rounded-lg font-medium text-sm transition-colors
+                  ${
+                    comparisonIds.length >= 2
+                      ? 'bg-violet-600 text-white hover:bg-violet-700'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
+                  }
+                `}
+                aria-disabled={comparisonIds.length < 2}
               >
-                <GitCompareArrows size={18} />
-                <span>Compare{count >= 2 ? ` (${count})` : ''}</span>
+                Compare {comparisonIds.length >= 2 ? `(${comparisonIds.length})` : ''}
               </Link>
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="h-1 bg-gray-100 rounded-b-xl overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-violet-500 to-violet-600 transition-all duration-300"
-              style={{ width: `${(count / maxItems) * 100}%` }}
-            />
-          </div>
+          {/* Hint text */}
+          {comparisonIds.length < 2 && (
+            <p className="text-xs text-gray-400 mt-1 text-center sm:text-left">
+              Add at least 2 listings to compare
+            </p>
+          )}
         </div>
       </div>
     </div>

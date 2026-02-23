@@ -4,11 +4,20 @@ import Image from 'next/image'
 import { MapPin, Bed, Bath } from 'lucide-react'
 import FavoriteButton from '../FavoriteButton'
 import { CompareButtonIcon } from '../CompareButton'
-import type { Listing } from '../../lib/db/types'
+import type { Listing, ListingWithLandlord } from '../../lib/db/types'
 import Link from 'next/link'
 
+/** Extended listing type with images and landlord info for card display */
+type CardListing = Listing & {
+    images?: string[]
+    landlord?: {
+        username?: string | null
+        avatar_url?: string | null
+    }
+}
+
 interface ListingCardProps {
-    listing: Listing
+    listing: CardListing
     /** Hide comparison button (e.g., on comparison page) */
     hideCompare?: boolean
 }
@@ -33,7 +42,7 @@ export default function ListingCard({ listing, hideCompare = false }: ListingCar
                     <div className="absolute top-3 left-3 z-10 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
                         <FavoriteButton listingId={listing.id} />
                         {!hideCompare && (
-                            <CompareButtonIcon listing={listing as Listing & { images?: string[] }} />
+                            <CompareButtonIcon listing={listing} />
                         )}
                     </div>
                 </div>
